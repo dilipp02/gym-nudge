@@ -12,6 +12,28 @@ _Spec: [2026-11-15-gym-nudge-design.md](../specs/2026-11-15-gym-nudge-design.md)
 
 ## Progress log
 
+**2026-11-15: Phase 3 done (`apps/api`, 38 tests in workerd).**
+
+- **Stack:** Hono + zod validation; plain D1 queries in `src/db/repo.ts` (no ORM); `@simplewebauthn/server` v14 for passkeys.
+- **Passkey tests:**
+  - `test/authenticator.ts` is a software passkey (ES256, "none" attestation) that produces real WebAuthn responses, so register and login go through actual verification. No test-only login backdoor exists.
+  - Covers: reused challenge, wrong origin, a second passkey, closed registration.
+- **Registration:**
+  - Open only while there are no users. After that it needs the `REGISTRATION_TOKEN` secret.
+  - A signed-in user can add passkeys.
+- **Test clock:** routes read time via `lib/clock.ts`. Tests pin it with an `X-Test-Now` header, which works only when the `TEST_CLOCK` binding is `enabled` (set in `vitest.config.ts` only).
+- **Offline replays:**
+  - `POST /checkin {at}` and `POST /sessions {performedAt}` accept the phone's time, within bounds (spec §10).
+  - A late check-in or log re-judges that day and every later day.
+- **Scheduler:**
+  - Verdicts are finalized before nudges.
+  - Nudges are logged before sending, which prevents duplicates.
+  - Push results are recorded; 404/410 subscriptions are deleted.
+  - Push sending takes an injectable `fetch`, so tests never touch the network.
+- **Routes:** `/today` and its siblings are mounted at the API root with sign-in **per route**, so `.use()` can't leak sign-in onto later routes such as the snooze hook.
+- **Seed:** the primary goal is named "April". Starting weights are conservative guesses, replaced by the week-1 baseline.
+- **Local dev:** secrets live in `apps/api/.dev.vars` (gitignored, generated). Run `npx wrangler d1 migrations apply gym-nudge --local` once.
+
 **2026-11-15: Phase 2 done (`packages/core`, 109 tests).**
 
 - **Modules:** `time`, `plan`, `strength`, `intensity`, `days`, `streak`, `projection`, `stacks`, `messages`, `nudges`.

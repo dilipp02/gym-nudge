@@ -22,6 +22,11 @@ export default tseslint.config(
     languageOptions: { globals: globals.node },
   },
   {
+    // API test responses are loosely typed JSON; `any` stays banned in app code.
+    files: ['**/test/**/*.ts'],
+    rules: { '@typescript-eslint/no-explicit-any': 'off' },
+  },
+  {
     files: ['apps/web/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks },
     rules: reactHooks.configs.recommended.rules,

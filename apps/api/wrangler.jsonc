@@ -16,4 +16,12 @@
     },
   ],
   "observability": { "enabled": true },
+  // Passkey relying party. Production values are set at deploy time (plan 5.1).
+  // Secrets (SESSION_SECRET, VAPID_*, REGISTRATION_TOKEN) live in .dev.vars locally
+  // and `wrangler secret put` in production.
+  "vars": {
+    "RP_ID": "localhost",
+    "RP_NAME": "Gym Nudge",
+    "APP_ORIGIN": "http://localhost:5180",
+  },
 }

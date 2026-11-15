@@ -138,30 +138,33 @@ iOS Shortcut (alarm snoozed)──POST─▶└───────────
 
 All routes need a session cookie except the auth and snooze routes. All write requests carry a client-generated ID or are naturally idempotent.
 
-| Method & path                                         | Purpose                                                                                  |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `POST /auth/{register,login}/{options,verify}`        | Passkey ceremonies                                                                       |
-| `GET /today`                                          | Today's state: suggested stack, plan with targets, window, rest availability, day status |
-| `POST /open`                                          | Records the first app open of the day (used by R5)                                       |
-| `POST /checkin`                                       | "I'm here" check-in; timestamp is server time                                            |
-| `POST /sessions`                                      | Save a session. Body: `{id, localDate, stackId, sets[]}`. Upsert by `id`.                |
-| `POST /days/:date/rest`                               | Declare today a rest day                                                                 |
-| `POST /days/:date/walk`                               | Log a recovery walk                                                                      |
-| `POST /commit`                                        | Commit to tomorrow's stack                                                               |
-| `POST /lights-out`                                    | Record bedtime                                                                           |
-| `GET/POST/PATCH/DELETE /stacks[/:id]`                 | Stack create/edit/delete (soft delete)                                                   |
-| `PATCH /stacks/order`                                 | Set rotation order                                                                       |
-| `GET/POST/PATCH/DELETE /stacks/:id/exercises[/:exId]` | Exercise create/edit/delete (soft delete); includes reordering                           |
-| `GET /progress`                                       | Data for the Progress screen                                                             |
-| `GET /scorecard?week=YYYY-Www`                        | Weekly scorecard                                                                         |
-| `GET/POST/PATCH/DELETE /goals[/:id]`                  | Milestones and lift targets                                                              |
-| `POST /body-metrics`                                  | Weight and waist entry                                                                   |
-| `POST /pauses`, `PATCH /pauses/:id`                   | Start or end a pause                                                                     |
-| `GET/PUT /settings`                                   | Schedule and rule toggles                                                                |
-| `POST/DELETE /push/subscription`, `POST /push/test`   | Web Push management                                                                      |
-| `POST /hooks/snooze/:token`                           | Snooze ping from the iOS Shortcut; no session needed                                     |
-| `POST /settings/snooze-token/reset`                   | Replace the snooze link                                                                  |
-| `GET /export`                                         | All of the user's data as JSON; CSV for sessions                                         |
+| Method & path                                                                       | Purpose                                                                                                                                                             |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /auth/{register,login}/{options,verify}`, `GET /auth/me`, `POST /auth/logout` | Passkey ceremonies. A new account can only be created when there are no users yet, or with the `REGISTRATION_TOKEN` secret. A signed-in user can add more passkeys. |
+| `GET /today[?stackId=]`                                                             | Today's state: suggested stack (or the one committed last night), plan with targets, window, rest availability, day status                                          |
+| `POST /open`                                                                        | Records the first app open of the day (used by R5)                                                                                                                  |
+| `POST /checkin`                                                                     | "I'm here" check-in. Uses server time; an offline replay may send `{at}` (see §10).                                                                                 |
+| `POST /sessions`                                                                    | Save a session. Body: `{id, localDate, stackId, sets[], performedAt?}`. Upsert by `id`. Returns the session report.                                                 |
+| `POST /days/:date/rest`                                                             | Declare a rest day, for today or tomorrow                                                                                                                           |
+| `POST /days/:date/walk`                                                             | Log a recovery walk                                                                                                                                                 |
+| `POST /commit`                                                                      | Commit to tomorrow's stack                                                                                                                                          |
+| `POST /lights-out`                                                                  | Record bedtime                                                                                                                                                      |
+| `GET/POST/PATCH/DELETE /stacks[/:id]`                                               | Stack create/edit/delete (soft delete)                                                                                                                              |
+| `PATCH /stacks/order`                                                               | Set rotation order                                                                                                                                                  |
+| `GET/POST/PATCH/DELETE /stacks/:id/exercises[/:exId]`                               | Exercise create/edit/delete (soft delete); includes reordering                                                                                                      |
+| `GET /progress`                                                                     | Data for the Progress screen                                                                                                                                        |
+| `GET /scorecard?week=YYYY-Www`                                                      | Weekly scorecard                                                                                                                                                    |
+| `GET/POST/PATCH/DELETE /goals[/:id]`                                                | Milestones and lift targets                                                                                                                                         |
+| `POST /body-metrics`                                                                | Weight and waist entry                                                                                                                                              |
+| `POST /pauses`, `PATCH /pauses/:id`                                                 | Start or end a pause                                                                                                                                                |
+| `GET/PUT /settings`                                                                 | Schedule and rule toggles                                                                                                                                           |
+| `GET /push/public-key`, `POST/DELETE /push/subscription`, `POST /push/test`         | Web Push management                                                                                                                                                 |
+| `POST /stacks/:id/duplicate`, `PATCH /stacks/:id/exercises/order`                   | Duplicate a stack; reorder its exercises                                                                                                                            |
+| `POST /hooks/snooze/:token`                                                         | Snooze ping from the iOS Shortcut; no session needed                                                                                                                |
+| `POST /settings/snooze-token/reset`                                                 | Replace the snooze link (the only time the token is shown)                                                                                                          |
+| `GET /export`, `GET /export/sessions.csv`                                           | All of the user's data as JSON; every logged set as CSV                                                                                                             |
+
+All routes are served under `/api`.
 
 ## 6. Data model (D1)
 
@@ -269,9 +272,9 @@ _Revised 2026-11-15 during implementation._ The first version projected every re
 The `scheduled()` handler runs every 5 minutes. For each user it:
 
 1. Loads the state.
-2. Computes `dueNudges(state, nowLocal)`.
-3. For each nudge returned: inserts into `nudge_log` (the unique key stops duplicates), then sends the push.
-4. Finalizes any `day_records` still `pending` whose verdict time has passed. Finalizing is idempotent, so a missed run catches up on the next one.
+2. Finalizes any `day_records` still `pending` whose verdict time has passed. This runs **before** the nudges, so the 21:30 message reports the finished day. Finalizing is idempotent, so a missed run catches up on the next one.
+3. Computes `dueRules(state, now)`.
+4. For each rule returned: inserts into `nudge_log` (the unique key stops duplicates), renders the message, sends the push, and records the outcome (`sent`, `failed` or `no_subscription`).
 
 ### 8.2 Rules
 
@@ -372,17 +375,17 @@ From top to bottom:
 
 ## 10. Handling failures
 
-| What goes wrong                     | How it's handled                                                                                                                                       |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Offline when logging                | Writes are queued in IndexedDB and replayed by the service worker. `sessions.id` is a client UUID and saves are upserts, so a replay can't duplicate.  |
-| A log arrives after the verdict     | The day is reclassified and `skip_cost_days` recalculated. **Logs are accepted for a day until 24 hours after it ends**; after that the day is locked. |
-| Push returns 404/410                | The subscription is deleted. The app shows a "Notifications are off" banner whenever no subscription is active.                                        |
-| A scheduler run is missed or fails  | Late nudges are dropped (§8.3). Verdict finalizing is idempotent and catches up on the next run.                                                       |
-| Time zones and daylight saving      | Times are stored in UTC and evaluated in the user's IANA time zone. Day boundaries are local midnight.                                                 |
-| Phone clock is wrong                | Server time is authoritative for check-ins and verdicts.                                                                                               |
-| Stack or exercise edited or deleted | Soft delete. Sessions keep `stack_snapshot`, and sets keep the exercise name and type, so history and progress stay intact.                            |
-| Snooze link leaks                   | Only a hash of the token is stored; it can be reset in Settings; rate-limited to 1 ping per 5 minutes.                                                 |
-| Phone or passkey lost               | Passkeys sync via iCloud Keychain; a second passkey can be registered. Data export is available, plus D1 point-in-time restore.                        |
+| What goes wrong                     | How it's handled                                                                                                                                                                                                                                                                                                                                                                                       |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Offline when logging                | Writes are queued in IndexedDB and replayed by the service worker. `sessions.id` is a client UUID and saves are upserts, so a replay can't duplicate.                                                                                                                                                                                                                                                  |
+| A log arrives after the verdict     | The day is reclassified and `skip_cost_days` recalculated. **Logs are accepted for a day until 24 hours after it ends**; after that the day is locked.                                                                                                                                                                                                                                                 |
+| Push returns 404/410                | The subscription is deleted. The app shows a "Notifications are off" banner whenever no subscription is active.                                                                                                                                                                                                                                                                                        |
+| A scheduler run is missed or fails  | Late nudges are dropped (§8.3). Verdict finalizing is idempotent and catches up on the next run.                                                                                                                                                                                                                                                                                                       |
+| Time zones and daylight saving      | Times are stored in UTC and evaluated in the user's IANA time zone. Day boundaries are local midnight.                                                                                                                                                                                                                                                                                                 |
+| Phone clock is wrong                | Server time is authoritative for check-ins and verdicts. _Exception (added 2026-11-15):_ a queued offline check-in (`at`) or log (`performedAt`) may carry the phone's time. It's accepted only if it isn't in the future (2-minute skew allowed) and falls on the day being logged (check-in: today or yesterday). Otherwise a session done offline would sync the next morning and be judged a skip. |
+| Stack or exercise edited or deleted | Soft delete. Sessions keep `stack_snapshot`, and sets keep the exercise name and type, so history and progress stay intact.                                                                                                                                                                                                                                                                            |
+| Snooze link leaks                   | Only a hash of the token is stored; it can be reset in Settings; rate-limited to 1 ping per 5 minutes.                                                                                                                                                                                                                                                                                                 |
+| Phone or passkey lost               | Passkeys sync via iCloud Keychain; a second passkey can be registered. Data export is available, plus D1 point-in-time restore.                                                                                                                                                                                                                                                                        |
 
 ## 11. Testing
 
