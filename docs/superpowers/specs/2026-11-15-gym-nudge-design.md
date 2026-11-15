@@ -172,7 +172,7 @@ Every user-owned table has a `user_id`. All timestamps are stored in UTC; `local
 | `users`              | id, timezone, age, sex, height_cm, start_date, created_at                                                                                                                                                        |
 | `credentials`        | id, user_id, public_key, counter, transports                                                                                                                                                                     |
 | `push_subscriptions` | id, user_id, endpoint, p256dh, auth, last_success_at                                                                                                                                                             |
-| `settings`           | user_id (PK), wake_time, checkin_start, checkin_end, rescue_cutoff, verdict_time, sleep_nudge_time, quiet_start, rules_enabled (JSON), measurement_weekday, snooze_token_hash                                    |
+| `settings`           | user_id (PK), wake_time, checkin_start, checkin_end, rescue_reminder_time, rescue_cutoff, verdict_time, sleep_nudge_time, quiet_start, rules_enabled (JSON), measurement_weekday, snooze_token_hash              |
 | `goals`              | id, user_id, name, date, is_primary, waist_target_delta_cm, weight_min, weight_max, deleted_at                                                                                                                   |
 | `goal_lift_targets`  | goal_id, exercise_id, target_weight, target_reps                                                                                                                                                                 |
 | `stacks`             | id, user_id, name, position, in_rotation, is_addon, deleted_at                                                                                                                                                   |
@@ -198,7 +198,8 @@ The score has three parts.
   - Session ratio = the mean of those exercise ratios.
   - Points scale linearly from 0 at ratio ≤ 0.80 to 30 at ratio ≥ 1.15.
   - An exercise with no history counts as ratio 1.0. A stack with no history scores 15.
-- **Progression, 0–20:** `20 × (share of exercises where today's best set beat last time's best set on weight, or on reps at the same weight)`.
+  - An exercise skipped entirely today is left out of the mean, because completion already counts it. _(Added 2026-11-15 during implementation.)_
+- **Progression, 0–20:** `20 × (share of exercises where today's best set beat last time's best set on weight, or on reps at the same weight)`. Timed exercises compare seconds. With no comparable exercise (first sessions), it scores a neutral 10.
 
 ### 7.2 Strength and milestones
 
@@ -211,14 +212,18 @@ The score has three parts.
 
 ### 7.3 Projected date for the primary target
 
-- `planned = 6 × weeks(start → primary date)`. That's about 132 sessions.
+_Revised 2026-11-15 during implementation._ The first version projected every remaining session at the 28-day rate. That made one skip in week 1 move the April date by about +29 days instead of the ~1.2 days agreed in brainstorming, which is too volatile to be honest or useful.
+
+- `planned = 6 × (days from start to primary date, inclusive) ÷ 7`. That's about 129 sessions for Nov 16 → Apr 15. It's kept fractional so day 0 projects exactly onto the target.
 - `done` = trained days + rescue days.
-- **Rate** = sessions in the last `W` days × 7 / `W`, where `W = min(28, days since start)`.
-  - Rate is capped at 6.
-  - If `W < 7`, use rate 6.
-  - If the rate is 0, show "no sessions in 28 days" instead of a date.
-- **Projected date** = today + `ceil((planned − done) / rate × 7)` days.
-- **Skip cost:** at the verdict, `skip_cost_days` = projection after the skip − projection before it. The **total skip cost** is the sum of these.
+- **Headline, "on plan":** the finish date if you train 6/week from tomorrow = `asOf + ceil((planned − done) × 7/6)`.
+  - A perfect week (6 sessions + 1 rest) leaves it unchanged.
+  - **Each skip moves it ≈ 1.17 days later (7/6)**, whether early or late in the plan.
+  - Pause days move it 1 day each, because the sessions really didn't happen.
+  - An extra session moves it earlier.
+- **`daysVsTarget`** = on-plan date − primary target, to one decimal. This is the **total skip cost**.
+- **Skip cost** of a single skip = `7/6` days. That's the figure in the R1 skip line.
+- **Secondary, "at pace":** remaining sessions at the last-`W`-day rate, where `W = min(28, days since start)`, capped at 6/week, with rate 6 when `W < 7`. It's shown as context only, and as "no sessions in 28 days" when the rate is 0.
 
 ### 7.4 Day classification (decided at the verdict time)
 
@@ -230,6 +235,8 @@ The score has three parts.
   5. `skip`: anything else.
 - **Training during a pause** counts as `trained` or `rescue`, because those come first.
 - **A check-in with no session logged** counts as no session, so tapping "I'm here" alone doesn't protect the day.
+- **Session logged but no check-in tap:** the time the session was saved stands in for the check-in. Forgetting to tap costs at most the morning credit, so a save after the window makes it `rescue`.
+- **Checking in before the window opens** still counts as `trained`.
 - **Second skip in a row:** the evening message gets a warning on the second consecutive skip.
 
 ### 7.5 Streak
@@ -270,16 +277,16 @@ The `scheduled()` handler runs every 5 minutes. For each user it:
 
 These are the default times. All of them are configurable.
 
-| Rule                | Time                 | Fires only if                                               | Template                                                                                            |
-| ------------------- | -------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| R1 commit / verdict | 21:30                | always (Sundays: the scorecard)                             | `"{verdictLine} Tomorrow: {stack}. {keyLift} {w}×{r} ({delta}). Check in by {checkinEnd}. Commit?"` |
-| R2 sleep            | 22:45                | no lights-out tapped                                        | `"Lights out by {t} → {h} sleep before {wake}. Last 7 days avg bedtime {avg}."`                     |
-| R3 wake             | 06:30                | not a declared rest day; not paused                         | `"Today: {stack}. Check-in window {start}–{end}. {nextMilestone}: {d}d."`                           |
-| R4 snooze           | snooze ping received | not checked in; at most 1 per 5 min; not during quiet hours | `"Window closes in {m} min. Skips this month: {s}. {primary} target: {date}."`                      |
-| R5 move             | 06:50                | no app open since R3 and not checked in                     | `"Leave in 10 min to check in by {t}."`                                                             |
-| R6 last call        | 07:15                | not checked in                                              | `"{m} min left in check-in window. {done}/6 sessions this week."`                                   |
-| R7 window closed    | 07:30                | not checked in                                              | `"Morning missed. Today counts as {rest                                                             | skip} unless you train by {cutoff}. Evening session still counts."` |
-| R8 rescue           | 18:30                | morning missed and no rest declared                         | `"Rescue: {h}h until {cutoff}. {stack} still open."`                                                |
+| Rule                | Time                           | Fires only if                                                                                                                            | Template                                                                                                       |
+| ------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| R1 commit / verdict | 21:30                          | always (Sundays: the scorecard)                                                                                                          | `"{verdictLine} Tomorrow: {stack}. {keyLift} {w}×{r} ({delta}). Check in by {checkinEnd}. Commit?"`            |
+| R2 sleep            | 22:45                          | no lights-out tapped                                                                                                                     | `"Lights out by {t} → {h} sleep before {wake}. Last 7 days avg bedtime {avg}."`                                |
+| R3 wake             | 06:30                          | not a declared rest day; not paused                                                                                                      | `"Today: {stack}. Check-in window {start}–{end}. {nextMilestone}: {d}d."`                                      |
+| R4 snooze           | snooze ping received           | not checked in; before the window closes; at most 1 per 5 min. Allowed in quiet hours, since the alarm can ring before the wake setting. | `"Window closes in {m} min. Skips this month: {s}. {primary} target: {date}."`                                 |
+| R5 move             | wake + 20 min (06:50)          | no app open since R3 and not checked in                                                                                                  | `"Leave in 10 min to check in by {t}."`                                                                        |
+| R6 last call        | window end − 15 min (07:15)    | not checked in                                                                                                                           | `"{m} min left in check-in window. {done}/6 sessions this week."`                                              |
+| R7 window closed    | window end (07:30)             | not checked in                                                                                                                           | `"Morning missed. Today counts as {rest or skip} unless you train by {cutoff}. Evening session still counts."` |
+| R8 rescue           | 18:30 (`rescue_reminder_time`) | morning missed, no rest declared, no session logged yet                                                                                  | `"Rescue: {h}h until {cutoff}. {stack} still open."`                                                           |
 
 **Extra lines added to the R1 verdict:**
 
@@ -289,7 +296,8 @@ These are the default times. All of them are configurable.
 
 ### 8.3 Behaviour rules
 
-- **Drop late nudges:** a scheduled nudge more than 15 minutes overdue is not sent.
+- **Drop late nudges:** a scheduled nudge 15 or more minutes overdue is not sent. Less late than that, it's still sent: after a cron outage from 06:40 to 07:20, R5 (06:50) is dropped but R6 (07:15) goes out at 07:20.
+- **Engine API (as built):** `dueRules(state, now)` returns which rules are due. `snoozeDue(state, now)` decides R4. The `messages.ts` templates render the text separately, so timing and wording are tested independently.
 - **Quiet hours:** nothing from `quiet_start` (23:30) until the wake time, except R4.
 - **Declared rest:** turns off R3, R5, R6, R7 and R8 for that day.
 - **Pause:** turns off everything except R1. During a pause, R1 sends a short status line only.

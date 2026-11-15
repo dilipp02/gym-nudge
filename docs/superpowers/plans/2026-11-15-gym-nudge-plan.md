@@ -12,6 +12,25 @@ _Spec: [2026-11-15-gym-nudge-design.md](../specs/2026-11-15-gym-nudge-design.md)
 
 ## Progress log
 
+**2026-11-15: Phase 2 done (`packages/core`, 109 tests).**
+
+- **Modules:** `time`, `plan`, `strength`, `intensity`, `days`, `streak`, `projection`, `stacks`, `messages`, `nudges`.
+- **No date library:** time-zone handling is `Intl` only, with no `date-fns-tz`. It's covered by tests across New York and London daylight-saving changes.
+- **Projection change (spec §7.3):**
+  - The headline date is now "on plan from tomorrow". A skip costs exactly 7/6 ≈ 1.17 days.
+  - The 28-day-pace date is kept as a secondary figure. Under the original formula, one skip in week 1 moved the date about +29 days.
+- **Engine split:**
+  - `dueRules`/`snoozeDue` decide timing; `messages.ts` renders the text.
+  - The pattern warning and the Sunday scorecard are tested in `messages.test.ts` and `streak.test.ts`, not in the day simulations.
+- **Simulation 8 (cron down 06:40–07:20):** R5 is dropped, and R6 is sent at 07:20 because it's only 5 minutes late. The plan's earlier expectation that R6 would also be dropped was wrong.
+- **Other small rules now in the spec:**
+  - An exercise skipped entirely is left out of the volume mean.
+  - Progression scores a neutral 10 when nothing is comparable.
+  - The save time stands in for a missing check-in.
+  - Snooze (R4) works in quiet hours but not after the window closes.
+  - R5 = wake + 20 min; R6 = window end − 15 min.
+  - New setting `rescue_reminder_time`.
+
 **2026-11-15: Phase 1 done, 0.2 checked in the runtime.**
 
 - **Repo layout:** npm workspaces; pnpm isn't installed, and Node 25 no longer bundles corepack. The Worker config is `wrangler.jsonc`.
