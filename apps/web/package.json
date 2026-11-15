@@ -1,0 +1,28 @@
+{
+  "name": "@gym-nudge/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run typecheck && vite build",
+    "preview": "vite preview",
+    "icons": "node scripts/make-icons.mjs",
+    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p tsconfig.sw.json"
+  },
+  "dependencies": {
+    "@gym-nudge/core": "*",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router": "^8.5.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "vite": "^8.3.8",
+    "vite-plugin-pwa": "^2.0.0",
+    "workbox-precaching": "^7.4.1",
+    "workbox-window": "^7.4.1"
+  }
+}

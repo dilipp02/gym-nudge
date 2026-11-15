@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+.wrangler/
+.dev.vars
+.env
+*.log
+.DS_Store
+playwright-report/
+test-results/
+# Brainstorming mockups (local only)
+.superpowers/
+dev-dist/
