@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "dev:api": "npm run dev -w @gym-nudge/api",
-    "dev:web": "npm run dev -w @gym-nudge/web"
+    "dev:web": "npm run dev -w @gym-nudge/web",
+    "deploy": "npm run build -w @gym-nudge/web && npm run deploy -w @gym-nudge/api"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

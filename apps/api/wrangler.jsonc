@@ -1,27 +1,35 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "gym-nudge-api",
+  "name": "gym-nudge",
   "main": "src/index.ts",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
+  // One Worker serves everything: /api/* runs the API, all other paths are the
+  // built web app (single-page app fallback). One origin, so the session cookie
+  // is same-site without any proxy.
+  "assets": {
+    "directory": "../web/dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"],
+  },
   // Nudge scheduler (spec §8.1): every 5 minutes.
   "triggers": { "crons": ["*/5 * * * *"] },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "gym-nudge",
-      // Replaced with the real ID from `wrangler d1 create gym-nudge` at deploy time (plan 5.1).
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      // Set from `wrangler d1 create gym-nudge` (plan 5.1).
+      "database_id": "b7a54ac5-8450-43a7-b5d9-9433bbef92ed",
       "migrations_dir": "migrations",
     },
   ],
   "observability": { "enabled": true },
-  // Passkey relying party. Production values are set at deploy time (plan 5.1).
-  // Secrets (SESSION_SECRET, VAPID_*, REGISTRATION_TOKEN) live in .dev.vars locally
-  // and `wrangler secret put` in production.
+  // Production passkey relying party (the deployed URL). Local dev overrides these
+  // in .dev.vars; tests override them in vitest.config.ts.
+  // Secrets (SESSION_SECRET, VAPID_*, REGISTRATION_TOKEN) are set with `wrangler secret put`.
   "vars": {
-    "RP_ID": "localhost",
+    "RP_ID": "gym-nudge.gym-nudge-api.workers.dev",
     "RP_NAME": "Gym Nudge",
-    "APP_ORIGIN": "http://localhost:5180",
+    "APP_ORIGIN": "https://gym-nudge.gym-nudge-api.workers.dev",
   },
 }

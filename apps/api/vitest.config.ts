@@ -24,6 +24,8 @@ export default defineConfig({
           bindings: {
             TEST_MIGRATIONS: migrations,
             TEST_CLOCK: 'enabled',
+            RP_ID: 'localhost',
+            APP_ORIGIN: 'http://localhost:5180',
             SESSION_SECRET: 'test-session-secret',
             REGISTRATION_TOKEN: 'test-registration-token',
             VAPID_PUBLIC_KEY: vapid.publicKey,

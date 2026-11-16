@@ -12,6 +12,25 @@ _Spec: [2026-11-15-gym-nudge-design.md](../specs/2026-11-15-gym-nudge-design.md)
 
 ## Progress log
 
+**2026-11-16: Phase 5.1 deployed. Live at https://gym-nudge.gym-nudge-api.workers.dev**
+
+- **One Worker** serves `/api/*` plus the built web app through Workers Static Assets (single-page fallback). This replaces "Pages + proxy": same origin, one deploy (`npm run deploy`).
+- **D1:** `gym-nudge` (APAC), migrations applied remotely.
+- **Secrets:**
+  - `SESSION_SECRET`, `VAPID_*` and `REGISTRATION_TOKEN` were generated fresh for production (different from local dev) and uploaded with `wrangler deploy --secrets-file`. The temporary file was deleted.
+  - Rotate any of them with `npx wrangler secret put NAME`.
+  - `VAPID_SUBJECT` is the app URL, not a personal email.
+- **Production config:** `RP_ID` and `APP_ORIGIN` in `wrangler.jsonc` are the live URL. Local `.dev.vars` and `vitest.config.ts` override them with localhost.
+- **Live smoke test passed:**
+  - Pages, single-page fallback, `sw.js`, manifest, icons.
+  - `/api/health`; 401 without sign-in.
+  - Push public key is the new production one.
+  - Passkey RP id is the live host.
+  - Snooze hook rejects bad tokens.
+  - 0 users.
+- **Note:** the new `workers.dev` subdomain took about 2 minutes to serve TLS after the first deploy.
+- **Next:** 5.2/5.3, the iPhone setup and checklist.
+
 **2026-11-16: Phase 4 done (`apps/web`, 8 tests + manual browser checks).**
 
 - **Screens:**

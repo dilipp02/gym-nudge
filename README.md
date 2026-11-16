@@ -57,3 +57,23 @@ npx wrangler d1 migrations apply gym-nudge --local
 
 Service workers and push notifications only work in a regular browser (Chrome or Safari), not in
 the Claude desktop app's preview pane.
+
+## Deploy
+
+Live at https://gym-nudge.gym-nudge-api.workers.dev (one Cloudflare Worker serves the API and the web app).
+
+```bash
+npm run deploy
+```
+
+Database migrations for production:
+
+```bash
+npx wrangler d1 migrations apply gym-nudge --remote --cwd apps/api
+```
+
+Rotate a secret (for example the registration code for adding another person):
+
+```bash
+npx wrangler secret put REGISTRATION_TOKEN --cwd apps/api
+```
