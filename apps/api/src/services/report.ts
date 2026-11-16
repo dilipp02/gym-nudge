@@ -15,6 +15,7 @@ export interface SessionReport {
     name: string;
     date: string;
     daysLeft: number;
+    baselineWeek: boolean;
     lifts: Array<{ name: string; before: number; after: number; onTrack: boolean }>;
   } | null;
   projection: { primaryName: string; onPlan: string; daysVsTarget: number } | null;
@@ -60,6 +61,7 @@ export function sessionReport(
       name: goal.name,
       date: goal.date,
       daysLeft: after.daysLeft,
+      baselineWeek: after.baselineWeek,
       lifts: after.lifts.map((l, i) => ({
         name: l.name,
         before: before.lifts[i]?.pct ?? 0,

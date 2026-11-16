@@ -95,5 +95,22 @@ describe('baseline and current best', () => {
     expect(p.elapsed).toBeCloseTo(24 / 43);
     expect(p.lifts[1]!.onTrack).toBe(true);
     expect(p.onTrackCount).toBe(1);
+    expect(p.baselineWeek).toBe(false);
+  });
+
+  it('counts every lift as on track during the baseline week', () => {
+    const goal: Goal = {
+      id: 'g',
+      name: 'Wedding 1',
+      date: '2026-12-29',
+      isPrimary: false,
+      liftTargets: [{ exerciseId: squat.id, targetWeight: 80, targetReps: 5 }],
+    };
+    const sessions = [session('2026-11-17', 's', wsets(squat, [[60, 5]]))];
+    const day6 = milestoneProgress(goal, [squat], sessions, START, '2026-11-22');
+    expect(day6).toMatchObject({ baselineWeek: true, onTrackCount: 1 });
+    expect(day6.lifts[0]!.pct).toBe(0);
+    const day7 = milestoneProgress(goal, [squat], sessions, START, '2026-11-23');
+    expect(day7).toMatchObject({ baselineWeek: false, onTrackCount: 0 });
   });
 });

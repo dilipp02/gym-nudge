@@ -59,7 +59,9 @@ describe('progress and scorecard', () => {
     expect(bench.baseline).toBeCloseTo(52.5 * (1 + 5 / 30));
     expect(bench.current).toBeCloseTo(bench.baseline);
     expect(bench.pct).toBe(0);
-    expect(p.stackFrequency.find((s: any) => s.name === 'Push').perWeek).toBeCloseTo(0.5);
+    // 2 Push sessions over the 4 days since the start → 3.5 per week.
+    expect(p.stackFrequency.find((s: any) => s.name === 'Push').perWeek).toBeCloseTo(3.5);
+    expect(p.frequencyWindowDays).toBe(4);
   });
 
   it('weekly scorecard', async () => {

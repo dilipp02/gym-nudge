@@ -2,6 +2,7 @@
 import {
   addDays,
   bestResult,
+  daysBetween,
   elapsedPct,
   exerciseVolume,
   isoWeek,
@@ -46,7 +47,9 @@ export function progress(s: UserState, now: Date) {
   const elapsed = next ? elapsedPct(s.user.startDate, next.date, today) : 0;
   const baselineWaist = waists[0]?.waistCm ?? null;
 
-  const from = addDays(today, -27);
+  // Up to 28 days, but never longer than you've been using the app.
+  const windowDays = Math.max(1, Math.min(28, daysBetween(s.user.startDate, today) + 1));
+  const from = addDays(today, -(windowDays - 1));
   const stackFrequency = s.stacks
     .filter((st) => st.inRotation && !st.isAddon)
     .map((st) => ({
@@ -57,7 +60,7 @@ export function progress(s: UserState, now: Date) {
           (x) => x.stackId === st.id && x.localDate >= from && x.localDate <= today,
         ).length *
           7) /
-        28,
+        windowDays,
     }));
 
   return {
@@ -82,6 +85,7 @@ export function progress(s: UserState, now: Date) {
         : null,
     },
     stackFrequency,
+    frequencyWindowDays: windowDays,
   };
 }
 

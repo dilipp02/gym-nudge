@@ -12,6 +12,29 @@ _Spec: [2026-11-15-gym-nudge-design.md](../specs/2026-11-15-gym-nudge-design.md)
 
 ## Progress log
 
+**2026-11-16: Phase 4 done (`apps/web`, 8 tests + manual browser checks).**
+
+- **Screens:**
+  - First-time setup: Home Screen guide (blocking on iPhone, since Home Screen apps keep separate cookies from Safari), passkey create or sign-in with an optional registration code, notifications plus test, profile and first body measurement, snooze link.
+  - Today: confirm-then-fix logging, session report, rest/walk, tomorrow commit.
+  - Stacks: drag to reorder with `@dnd-kit`, edit stack, exercise form.
+  - Progress: goal-first layout.
+  - Settings.
+- **Offline outbox** (`src/offline/outbox.ts`):
+  - Writes queue in IndexedDB when there's no network, and replay in order on startup, `online`, or foreground.
+  - Writes the server rejects for good (4xx) are parked and shown in a banner; 5xx keeps them queued.
+  - Check-in and session writes carry the phone's timestamp (`at`, `performedAt`) for the server's offline-replay rule.
+- **Checked in the in-app browser** at 375×812 with a local test user:
+  - Setup → Today → check-in → edit a set → save → report.
+  - Stack switch, drag-reorder persisted, Progress, Settings.
+  - Fixed along the way: set editor too wide for a phone; summaries wrapping; Tomorrow picker not resetting after a save; misleading red 0% during the baseline week; calendar not aligned to weekdays; stack frequency diluted by the 28-day window on day 2.
+- **Local test user:** `npm run dev:user -w @gym-nudge/api`
+  - Creates a seeded user in the **local** D1 and prints a cookie signed with the local `SESSION_SECRET`, so the UI can be used without registering a real passkey on this Mac.
+  - Local only: it reads `.dev.vars` and runs `wrangler d1 execute --local`.
+- **Not done:**
+  - **Playwright e2e tests.** They need a browser download; the plan's flows were checked by hand instead.
+  - **Service worker, push and Add to Home Screen**, which can't run in the desktop app's preview pane. They need real Safari or Chrome, and the iPhone checklist after deploy (5.3).
+
 **2026-11-15: Phase 3 done (`apps/api`, 38 tests in workerd).**
 
 - **Stack:** Hono + zod validation; plain D1 queries in `src/db/repo.ts` (no ORM); `@simplewebauthn/server` v14 for passkeys.

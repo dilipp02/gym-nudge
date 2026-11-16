@@ -42,5 +42,18 @@ npm run dev:web
 
 The web app runs on http://localhost:5180 and proxies `/api` to the Worker on port 8787.
 
+To use the UI locally without registering a real passkey, create a local test user and paste the
+printed cookie line into the browser console on http://localhost:5180:
+
+```bash
+npm run dev:user -w @gym-nudge/api
+```
+
+The first time, apply the database migrations to the local dev database:
+
+```bash
+npx wrangler d1 migrations apply gym-nudge --local
+```
+
 Service workers and push notifications only work in a regular browser (Chrome or Safari), not in
 the Claude desktop app's preview pane.

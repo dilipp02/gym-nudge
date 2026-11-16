@@ -108,6 +108,8 @@ export interface MilestoneProgress {
   date: LocalDate;
   daysLeft: number;
   elapsed: number;
+  /** True during the first 7 days: the baseline is still being set, so nothing can be behind. */
+  baselineWeek: boolean;
   lifts: LiftProgress[];
   onTrackCount: number;
 }
@@ -120,6 +122,7 @@ export function milestoneProgress(
   today: LocalDate,
 ): MilestoneProgress {
   const elapsed = elapsedPct(startDate, goal.date, today);
+  const baselineWeek = daysBetween(startDate, today) < BASELINE_DAYS;
   const byId = new Map(exercises.map((e) => [e.id, e]));
   const lifts: LiftProgress[] = [];
   for (const t of goal.liftTargets) {
@@ -136,7 +139,7 @@ export function milestoneProgress(
       current,
       target,
       pct,
-      onTrack: pct >= elapsed,
+      onTrack: baselineWeek || pct >= elapsed,
     });
   }
   return {
@@ -145,6 +148,7 @@ export function milestoneProgress(
     date: goal.date,
     daysLeft: daysBetween(today, goal.date),
     elapsed,
+    baselineWeek,
     lifts,
     onTrackCount: lifts.filter((l) => l.onTrack).length,
   };

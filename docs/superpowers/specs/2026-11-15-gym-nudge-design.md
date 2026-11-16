@@ -212,6 +212,7 @@ The score has three parts.
 - **Milestone %** = `clamp((current best − baseline) / (target − baseline), 0, 1)`.
 - **"Current best"** means the best result in the last 14 days, so a lift that's no longer trained loses its credit.
 - **On track** if milestone % ≥ elapsed % = `(today − start) / (milestone date − start)`.
+- **Baseline week** (first 7 days, added 2026-11-16): every lift counts as on track and the screens show it in neutral grey. The baseline is still being set, so nothing can be behind yet.
 
 ### 7.3 Projected date for the primary target
 
