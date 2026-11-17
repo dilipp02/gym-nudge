@@ -9,7 +9,8 @@
     "types": "wrangler types",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p .",
-    "dev:user": "node scripts/dev-user.mjs"
+    "dev:user": "node scripts/dev-user.mjs",
+    "dev:vars": "node scripts/dev-vars.mjs"
   },
   "dependencies": {
     "@block65/webcrypto-web-push": "^2.0.0",
